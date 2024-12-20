@@ -1,4 +1,4 @@
-FROM node:18-slim AS base
+FROM node:20-slim AS base
 WORKDIR /app
 RUN apt update && apt install -y \
     g++ make python3 wget gnupg dirmngr unzip
@@ -18,14 +18,16 @@ COPY . .
 RUN pnpm install && pnpm build
 
 # Final stage
-FROM node:18-slim
+FROM node:20-slim
 WORKDIR /app
 
 # Set environment variables
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 ENV NODE_ENV=production
+
 # Install dependencies
 RUN apt update && apt install -y wget gnupg dirmngr unzip
+
 # Install dependencies and google chrome based on architecture
 RUN apt update && apt install -y wget gnupg dirmngr curl && \
     ARCH=$(dpkg --print-architecture) && \
@@ -60,16 +62,10 @@ COPY --from=build /app/app/widget/dist/assets/ ./public/assets
 COPY --from=build /app/app/widget/dist/index.html ./public/bot.html 
 COPY --from=build /app/app/script/dist/chat.min.js ./public/chat.min.js 
 
-# Copy your project files
-COPY package.json yarn.lock ./
-
-# Install dependencies with ignore-engines flag
-RUN yarn config set ignore-engines true && \
-    yarn config set registry https://registry.npmjs.org/ && \
+# Install production dependencies
+RUN yarn config set registry https://registry.npmjs.org/ && \
     yarn config set network-timeout 1200000 && \
     yarn install --production --frozen-lockfile
-    
+
 # Start the application
 CMD ["yarn", "start"]
-
-
