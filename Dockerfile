@@ -1,5 +1,4 @@
-# Replace your current Node base image
-FROM node:20-alpine  # This uses Node.js 20
+FROM node:18-slim AS base
 WORKDIR /app
 RUN apt update && apt install -y \
     g++ make python3 wget gnupg dirmngr unzip
@@ -19,8 +18,7 @@ COPY . .
 RUN pnpm install && pnpm build
 
 # Final stage
-# Replace your current Node base image
-FROM node:20-alpine  # This uses Node.js 20
+FROM node:18-slim
 WORKDIR /app
 
 # Set environment variables
@@ -62,15 +60,16 @@ COPY --from=build /app/app/widget/dist/assets/ ./public/assets
 COPY --from=build /app/app/widget/dist/index.html ./public/bot.html 
 COPY --from=build /app/app/script/dist/chat.min.js ./public/chat.min.js 
 
-
-
 # Copy your project files
 COPY package.json yarn.lock ./
 
-# Install dependencies
-RUN yarn config set registry https://registry.npmjs.org/ && \
+# Install dependencies with ignore-engines flag
+RUN yarn config set ignore-engines true && \
+    yarn config set registry https://registry.npmjs.org/ && \
     yarn config set network-timeout 1200000 && \
     yarn install --production --frozen-lockfile
-
+    
 # Start the application
 CMD ["yarn", "start"]
+
+
