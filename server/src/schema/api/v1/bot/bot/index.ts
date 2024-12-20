@@ -62,6 +62,34 @@ export const getBotByIdSchema: FastifySchema = {
   },
 };
 
+export const getDatasourceByBotIdSchema: FastifySchema = {
+  tags: ["Bot"],
+  headers: {
+    type: "object",
+    properties: {
+      Authorization: { type: "string" },
+    },
+    required: ["Authorization"],
+  },
+  params: {
+    type: "object",
+    required: ["id"],
+    properties: {
+      id: {
+        type: "string",
+      },
+    },
+  },
+  querystring: {
+    type: "object",
+    properties: {
+      page: { type: "number", default: 1 },
+      limit: { type: "number", default: 10 },
+    },
+  }
+};
+
+
 export const addNewSourceByIdSchema: FastifySchema = {
   tags: ["Bot"],
   headers: {
@@ -216,6 +244,38 @@ export const createBotAPISchema: FastifySchema = {
       temperature: {
         type: "number",
       },
+      options: {
+        type: "object",
+        properties: {
+          noOfDocumentsToRetrieve: {
+            type: "number",
+          },
+          noOfChatHistoryInContext: {
+            type: "number",
+          },
+          semanticSearchSimilarityScore: {
+            type: "string",
+            enum: ["none", "0.2", "0.5", "0.7"],
+            default: "none"
+          },
+          autoResetSession: {
+            type: "boolean",
+            default: false,
+          },
+          internetSearchEnabled: {
+            type: "boolean",
+            default: false,
+          },
+          use_hybrid_search: {
+            type: "boolean",
+            default: false,
+          },
+          autoSyncDataSources: {
+            type: "boolean",
+            default: false,
+          },
+        },
+      },
     },
   },
 };
@@ -336,5 +396,39 @@ export const updateBotPasswordSettingsSchema: FastifySchema = {
         type: "string",
       },
     },
+  },
+};
+
+
+export const searchBotSchema: FastifySchema = {
+  tags: ["Bot"],
+  headers: {
+    type: "object",
+    properties: {
+      Authorization: { type: "string" },
+    },
+    required: ["Authorization"],
+  },
+  params: {
+    type: "object",
+    required: ["id"],
+    properties: {
+      id: {
+        type: "string",
+      },
+    },
+  },
+  body: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+      },
+      total_results: {
+        type: "number",
+        default: 10,
+      },
+    },
+    required: ["query"],
   },
 };

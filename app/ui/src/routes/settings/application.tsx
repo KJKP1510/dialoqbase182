@@ -28,6 +28,9 @@ export default function SettingsApplicationRoot() {
       hideDefaultModels: boolean;
       dynamicallyFetchOllamaModels: boolean;
       ollamaURL: string;
+      fileUploadSizeLimit: number;
+      refetchDatasource: boolean;
+      internalSearchEnabled: boolean;
     };
   });
 
@@ -158,6 +161,36 @@ export default function SettingsApplicationRoot() {
                     label="Enhanced Website loader"
                     name="usePuppeteerFetch"
                     valuePropName="checked"
+                  >
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item
+                    label="Number of files per upload"
+                    name="fileUploadSizeLimit"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please input the number of files per upload!",
+                      },
+                    ]}
+                    tooltip="Default is 10"
+                  >
+                    <InputNumber size="large" style={{ width: "100%" }} />
+                  </Form.Item>
+                  <Form.Item
+                    label="Refetch Data Source"
+                    name="refetchDatasource"
+                    valuePropName="checked"
+                    help="This will refetch the data source at a specific interval."
+                  >
+                    <Switch />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="internalSearchEnabled"
+                    label="Enable internal search"
+                    valuePropName="checked"
+                    help="This is experimental and may not work as expected."
                   >
                     <Switch />
                   </Form.Item>

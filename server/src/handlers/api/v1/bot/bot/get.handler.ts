@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 
-import { GetBotRequestById } from "./types";
+import { GetBotRequestById, GetDatasourceByBotId } from "./types";
 import { getSettings } from "../../../../../utils/common";
 import { getAllOllamaModels } from "../../../../../utils/ollama";
 
@@ -14,7 +14,7 @@ export const getBotByIdEmbeddingsHandler = async (
   const bot = await prisma.bot.findFirst({
     where: {
       id,
-      user_id: request.user.user_id,
+      user_id: request.user?.is_admin ? undefined : request.user?.user_id,
     },
   });
 
@@ -37,17 +37,20 @@ export const getBotByIdEmbeddingsHandler = async (
   };
 };
 
-export const getBotByIdAllSourcesHandler = async (
-  request: FastifyRequest<GetBotRequestById>,
+export const getDatasourceByBotId = async (
+  request: FastifyRequest<GetDatasourceByBotId>,
   reply: FastifyReply
 ) => {
   const prisma = request.server.prisma;
   const id = request.params.id;
+  const { limit, page } = request.query;
+  const skip = (page - 1) * limit;
+  const search = request.query.search;
 
   const bot = await prisma.bot.findFirst({
     where: {
       id,
-      user_id: request.user.user_id,
+      user_id: request.user?.user_id,
     },
   });
 
@@ -56,18 +59,52 @@ export const getBotByIdAllSourcesHandler = async (
       message: "Bot not found",
     });
   }
-
-  const sources = await prisma.botSource.findMany({
-    where: {
-      botId: id,
-      type: {
-        notIn: ["crawl", "sitemap"],
+  const [sources, totalCount] = await Promise.all([
+    prisma.botSource.findMany({
+      where: {
+        botId: id,
+        type: {
+          notIn: ["crawl", "sitemap", "zip"],
+        },
+        OR: search
+          ? [
+            {
+              content: search,
+            },
+          ]
+          : undefined,
       },
-    },
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip,
+      take: limit,
+      include: {
+        document: true,
+      },
+    }),
+    prisma.botSource.count({
+      where: {
+        botId: id,
+        type: {
+          notIn: ["crawl", "sitemap", "zip"],
+        },
+        OR: search
+          ? [
+            {
+              content: search,
+            },
+          ]
+          : undefined,
+      },
+    }),
+  ]);
 
   return {
     data: sources,
+    total: totalCount,
+    next: page * limit < totalCount ? page + 1 : null,
+    prev: page > 1 ? page - 1 : null,
   };
 };
 
@@ -81,7 +118,7 @@ export const getBotByIdHandler = async (
   const bot = await prisma.bot.findFirst({
     where: {
       id,
-      user_id: request.user.user_id,
+      user_id: request.user?.is_admin ? undefined : request.user?.user_id,
     },
   });
 
@@ -100,10 +137,9 @@ export const getAllBotsHandler = async (
   reply: FastifyReply
 ) => {
   const prisma = request.server.prisma;
-
   const bots = await prisma.bot.findMany({
     where: {
-      user_id: request.user.user_id,
+      user_id: request.user?.user_id,
     },
     orderBy: {
       createdAt: "desc",
@@ -155,11 +191,10 @@ export const getCreateBotConfigHandler = async (
     .filter((model) => model.model_type === "embedding")
     .map((model) => {
       return {
-        label: `${model.name || model.model_id} ${
-          model.model_id === "dialoqbase_eb_dialoqbase-ollama"
-            ? "(Deprecated)"
-            : ""
-        }`,
+        label: `${model.name || model.model_id} ${model.model_id === "dialoqbase_eb_dialoqbase-ollama"
+          ? "(Deprecated)"
+          : ""
+          }`,
         value: model.model_id,
         disabled: model.model_id === "dialoqbase_eb_dialoqbase-ollama",
       };
@@ -184,6 +219,7 @@ export const getCreateBotConfigHandler = async (
     embeddingModel,
     defaultChatModel: settings?.defaultChatModel,
     defaultEmbeddingModel: settings?.defaultEmbeddingModel,
+    fileUploadSizeLimit: settings?.fileUploadSizeLimit,
   };
 };
 
@@ -197,7 +233,7 @@ export const getBotByIdSettingsHandler = async (
   const bot = await prisma.bot.findFirst({
     where: {
       id,
-      user_id: request.user.user_id,
+      user_id: request.user?.is_admin ? undefined : request.user?.user_id,
     },
   });
   if (!bot) {
@@ -234,11 +270,10 @@ export const getBotByIdSettingsHandler = async (
     .filter((model) => model.model_type === "embedding")
     .map((model) => {
       return {
-        label: `${model.name || model.model_id} ${
-          model.model_id === "dialoqbase_eb_dialoqbase-ollama"
-            ? "(Deprecated)"
-            : ""
-        }`,
+        label: `${model.name || model.model_id} ${model.model_id === "dialoqbase_eb_dialoqbase-ollama"
+          ? "(Deprecated)"
+          : ""
+          }`,
         value: model.model_id,
         disabled: model.model_id === "dialoqbase_eb_dialoqbase-ollama",
       };
@@ -274,7 +309,7 @@ export const isBotReadyHandler = async (
   const bot = await prisma.bot.findFirst({
     where: {
       id,
-      user_id: request.user.user_id,
+      user_id: request.user?.is_admin ? undefined : request.user?.user_id,
     },
   });
 

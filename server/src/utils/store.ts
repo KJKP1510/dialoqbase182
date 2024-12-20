@@ -1,11 +1,17 @@
 import { Document } from "@langchain/core/documents";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { Embeddings } from "@langchain/core/embeddings";
 import { VectorStore } from "@langchain/core/vectorstores";
+import { Callbacks } from "langchain/callbacks";
+import { searchInternet } from "../internet";
 const prisma = new PrismaClient();
 export interface DialoqbaseLibArgs {
   botId: string;
   sourceId: string | null;
+  knowledge_base_ids?: string[];
+}
+export function removeUUID(filename: string) {
+  return filename.replace(/^\w{8}-\w{4}-\w{4}-\w{4}-\w{12}-/, "");
 }
 
 interface SearchEmbeddingsResponse {
@@ -19,12 +25,14 @@ export class DialoqbaseVectorStore extends VectorStore {
   botId: string;
   sourceId: string | null;
   declare embeddings: Embeddings;
+  knowledge_base_ids: string[];
 
   constructor(embeddings: Embeddings, args: DialoqbaseLibArgs) {
     super(embeddings, args);
     this.botId = args.botId;
     this.sourceId = args.sourceId;
     this.embeddings = embeddings;
+    this.knowledge_base_ids = args.knowledge_base_ids || [];
   }
   async addVectors(vectors: number[][], documents: Document[]): Promise<void> {
     const rows = vectors.map((embedding, idx) => ({
@@ -89,15 +97,39 @@ export class DialoqbaseVectorStore extends VectorStore {
     return instance;
   }
 
+
+  async similaritySearchWithSelectedKBs(
+    query: number[],
+    k: number,
+    knowledgeBaseIds: string[]
+  ) {
+    const vector = `[${query?.join(",")}]`;
+    const results = await prisma.$queryRaw`
+      SELECT "sourceId", "content", "metadata",
+             (embedding <=> ${vector}::vector) AS distance
+      FROM "BotDocument"
+      WHERE "sourceId" IN (${Prisma.join(knowledgeBaseIds)})
+      ORDER BY distance ASC
+      LIMIT ${k}
+    `
+    return results as {
+      sourceId: string;
+      content: string;
+      metadata: object;
+      distance: number;
+    }[];
+  }
+
   async similaritySearchVectorWithScore(
     query: number[],
     k: number,
-    filter?: this["FilterType"] | undefined
+    filter?: this["FilterType"] | undefined,
+    originalQuery?: string | undefined,
   ): Promise<[Document<Record<string, any>>, number][]> {
     if (!query) {
       return [];
     }
-    const vector = `[${query?.join(",")}]`;
+
     const bot_id = this.botId;
 
     const botInfo = await prisma.bot.findFirst({
@@ -111,13 +143,81 @@ export class DialoqbaseVectorStore extends VectorStore {
     const semanticSearchSimilarityScore =
       botInfo?.semanticSearchSimilarityScore || "none";
 
+    let result: (number | Document<object>)[][];
+
+    if (this.knowledge_base_ids && this.knowledge_base_ids.length > 0) {
+      const data = await this.similaritySearchWithSelectedKBs(query, match_count, this.knowledge_base_ids);
+      result = data.map((resp) => [
+        new Document({
+          metadata: resp.metadata,
+          pageContent: resp.content,
+        }),
+        1 - resp.distance,
+      ]);
+    } else {
+      const vector = `[${query?.join(",")}]`;
+      const data = await prisma.$queryRaw`
+        SELECT * FROM "similarity_search_v2"(query_embedding := ${vector}::vector, botId := ${bot_id}::text,match_count := ${match_count}::int)
+      `;
+      result = (data as SearchEmbeddingsResponse[]).map((resp) => [
+        new Document({
+          metadata: resp.metadata,
+          pageContent: resp.content,
+        }),
+        resp.similarity,
+      ]);
+    }
+
+    let internetSearchResults = [];
+    if (botInfo.internetSearchEnabled) {
+      internetSearchResults = await searchInternet(this.embeddings, {
+        query: originalQuery,
+      });
+    }
+
+    const combinedResults = [...result, ...internetSearchResults];
+    combinedResults.sort((a, b) => b[1] - a[1]);
+
+    const topResults = combinedResults.slice(0, k);
+
+    if (semanticSearchSimilarityScore === "none") {
+      return topResults;
+    }
+
+    const similarityThreshold = parseFloat(semanticSearchSimilarityScore);
+    const filteredResults = topResults.filter(
+      ([, similarity]) => similarity >= similarityThreshold
+    );
+    return filteredResults;
+  }
+  async similaritySearchVectorWithScore2(
+    query: number[],
+    k: number,
+    filter?: this["FilterType"] | undefined,
+    originalQuery?: string | undefined
+  ): Promise<[Document<Record<string, any>>, number][]> {
+    if (!query) {
+      return [];
+    }
+    const vector = `[${query?.join(",")}]`;
+    const bot_id = this.botId;
+
+    const botInfo = await prisma.bot.findFirst({
+      where: {
+        id: bot_id,
+      },
+    });
+
+    const match_count = k;
+
+    const semanticSearchSimilarityScore =
+      botInfo?.semanticSearchSimilarityScore || "none";
+
     const data = await prisma.$queryRaw`
      SELECT * FROM "similarity_search_v2"(query_embedding := ${vector}::vector, botId := ${bot_id}::text,match_count := ${match_count}::int)
     `;
-    
-    const result: [Document, number][] = (
-      data as SearchEmbeddingsResponse[]
-    ).map((resp) => [
+
+    const result = (data as SearchEmbeddingsResponse[]).map((resp) => [
       new Document({
         metadata: resp.metadata,
         pageContent: resp.content,
@@ -125,15 +225,67 @@ export class DialoqbaseVectorStore extends VectorStore {
       resp.similarity,
     ]);
 
-    if (semanticSearchSimilarityScore === "none") {
-      return result;
+    let internetSearchResults = [];
+    if (botInfo.internetSearchEnabled) {
+      internetSearchResults = await searchInternet(this.embeddings, {
+        query: originalQuery,
+      });
     }
 
-    const valueInFloat = parseFloat(semanticSearchSimilarityScore);
-    const filteredResult = result.filter(
-      ([, similarity]) => similarity >= valueInFloat
+    const combinedResults = [...result, ...internetSearchResults];
+    combinedResults.sort((a, b) => b[1] - a[1]);
+
+    const topResults = combinedResults.slice(0, k);
+
+    if (semanticSearchSimilarityScore === "none") {
+      return topResults;
+    }
+
+    const similarityThreshold = parseFloat(semanticSearchSimilarityScore);
+    const filteredResults = topResults.filter(
+      ([, similarity]) => similarity >= similarityThreshold
     );
-    return filteredResult;
+    return filteredResults;
+  }
+  async similaritySearch(
+    query: string,
+    k = 4,
+    filter: this["FilterType"] | undefined = undefined,
+    _callbacks: Callbacks | undefined = undefined // implement passing to embedQuery later
+  ): Promise<any[]> {
+    const results = await this.similaritySearchVectorWithScore(
+      await this.embeddings.embedQuery(query),
+      k,
+      filter,
+      query
+    );
+    return results.map((result) => result[0]);
+  }
+  async similaritySearchV2(
+    query: string,
+    k = 4,
+    filter: this["FilterType"] | undefined = undefined,
+    _callbacks: Callbacks | undefined = undefined // implement passing to embedQuery later
+  ): Promise<any[]> {
+    const results = await this.similaritySearchVectorWithScore2(
+      await this.embeddings.embedQuery(query),
+      k,
+      filter,
+      query
+    );
+    return results.map((result) => {
+      return {
+        result: {
+          pageContent: result[0].pageContent,
+          source: removeUUID(
+            `${result[0]?.metadata?.path ||
+              result[0]?.metadata?.source
+              }`.replace("./uploads/", "")
+          )
+        },
+        score: (result[1] * 100).toFixed(2)
+      }
+    });
   }
 
   _vectorstoreType(): string {

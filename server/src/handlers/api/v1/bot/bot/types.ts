@@ -96,6 +96,17 @@ export interface CreateBotAPIRequest {
     system_prompt?: string;
     question_generator_prompt?: string;
     temperature?: number;
+    options?: {
+      noOfDocumentsToRetrieve?: number,
+      noOfChatHistoryInContext?: number,
+      publicBotPwdProtected? : boolean,
+      semanticSearchSimilarityScore?: "none" |"0.2" |"0.5" |"0.7"
+      autoResetSession?: boolean,
+      internetSearchEnabled?: boolean
+      use_hybrid_search?: boolean
+      autoSyncDataSources?: boolean
+      internalSearchEnabled?: boolean
+    }
   };
 }
 
@@ -130,6 +141,7 @@ export interface ChatAPIRequest {
       role: string;
       text: string;
     }[];
+    knowledge_base_ids?: string[]
   };
 }
 
@@ -141,4 +153,26 @@ export interface UpdateBotPasswordSettings {
     publicBotPwdProtected: boolean;
     publicBotPwd?: string;
   };
+}
+
+export type GetDatasourceByBotId  = {
+  Params: {
+      id: string;
+  },
+  Querystring: {
+      limit: number;
+      page: number;
+      search?: string
+  }
+}
+
+
+export type SearchRequest = {
+  Body: {
+    query: string;
+    total_results: number;
+  }
+  Params: {
+    id: string;
+  }
 }

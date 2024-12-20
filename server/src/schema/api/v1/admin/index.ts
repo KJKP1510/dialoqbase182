@@ -23,6 +23,9 @@ export const dialoqbaseSettingsSchema: FastifySchema = {
       hideDefaultModels: { type: "boolean" },
       ollamaURL: { type: "string" },
       usePuppeteerFetch: { type: "boolean" },
+      fileUploadSizeLimit: { type: "number" },
+      refetchDatasource: { type: "boolean" },
+      internalSearchEnabled: { type: "boolean" },
     },
   },
 };
@@ -49,6 +52,9 @@ export const updateDialoqbaseSettingsSchema: FastifySchema = {
       hideDefaultModels: { type: "boolean" },
       ollamaURL: { type: "string" },
       usePuppeteerFetch: { type: "boolean" },
+      fileUploadSizeLimit: { type: "number" },
+      refetchDatasource: { type: "boolean" },
+      internalSearchEnabled: { type: "boolean" },
     },
   },
   response: {
@@ -133,6 +139,7 @@ export const registerUserByAdminSchema: FastifySchema = {
       username: { type: "string" },
       email: { type: "string" },
       password: { type: "string" },
+      return_id: { type: "boolean" },
     },
     required: ["username", "email", "password"],
   },
@@ -141,6 +148,8 @@ export const registerUserByAdminSchema: FastifySchema = {
       type: "object",
       properties: {
         message: { type: "string" },
+        user_id: { type: "string" },
+        api_key: { type: "string" },
       },
     },
   },
@@ -163,6 +172,34 @@ export const updateDialoqbaseRAGSettings: FastifySchema = {
       defaultChunkOverlap: { type: "number" },
     },
     required: ["defaultChunkSize", "defaultChunkOverlap"],
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+      },
+    },
+  },
+};
+
+
+export const deleteUserSchema: FastifySchema = {
+  tags: ["Admin"],
+  summary: "API to delete user",
+  headers: {
+    type: "object",
+    properties: {
+      Authorization: { type: "string" },
+    },
+    required: ["Authorization"],
+  },
+  body: {
+    type: "object",
+    properties: {
+      user_id: { type: "number" },
+    },
+    required: ["user_id"],
   },
   response: {
     200: {

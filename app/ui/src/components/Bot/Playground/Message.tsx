@@ -10,6 +10,8 @@ import React from "react";
 import { removeUUID } from "../../../utils/filename";
 import { useSpeechSynthesis } from "../../../hooks/useSpeechSynthesis";
 import { useElevenLabsTTS } from "../../../hooks/useElevenLabsTTS";
+import { Collapse } from "antd";
+import { clipbardCopy } from "../../../utils/clipboard";
 
 type Props = Message & {
   onSourceClick(source: any): void;
@@ -55,24 +57,41 @@ export const PlaygroundMessage = (props: Props) => {
               <Markdown message={props.message} />
             </div>
 
-            {props.isBot && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {props?.sources?.map((source, index) => (
-                  <button
-                    key={index}
-                    onClick={props.onSourceClick.bind(null, source)}
-                    className="inline-flex cursor-pointer transition-shadow duration-300 ease-in-out hover:shadow-lg  items-center rounded-md bg-gray-100 p-1 text-xs text-gray-800 border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 opacity-80 hover:opacity-100"
-                  >
-                    <span className="text-xs">
-                      {removeUUID(
-                        `${
-                          source?.metadata?.path || source?.metadata?.source
-                        }`.replace("./uploads/", "")
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            {props.isBot && props?.sources && props?.sources?.length > 0 && (
+              <Collapse
+                className="mt-6"
+                ghost
+                items={[
+                  {
+                    key: "1",
+                    label: (
+                      <div className="italic text-gray-500 dark:text-gray-400">
+                        Bot sources
+                      </div>
+                    ),
+                    children: (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {props?.sources?.map((source, index) => (
+                          <button
+                            key={index}
+                            onClick={props.onSourceClick.bind(null, source)}
+                            className="inline-flex cursor-pointer transition-shadow !line-clamp-1 duration-300 ease-in-out hover:shadow-lg  items-center rounded-md bg-gray-200 p-1 text-xs text-gray-800 border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 opacity-80 hover:opacity-100 "
+                          >
+                            <span className="text-xs">
+                              {removeUUID(
+                                `${
+                                  source?.metadata?.path ||
+                                  source?.metadata?.source
+                                }`.replace("./uploads/", "")
+                              )}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ),
+                  },
+                ]}
+              />
             )}
           </div>
 
@@ -80,8 +99,8 @@ export const PlaygroundMessage = (props: Props) => {
             <div className="flex space-x-2">
               {!props.hideCopy && (
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(props.message);
+                  onClick={async () => {
+                    await clipbardCopy(props.message);
                     setIsBtnPressed(true);
                     setTimeout(() => {
                       setIsBtnPressed(false);

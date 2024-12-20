@@ -7,7 +7,7 @@ import {
   deleteBotByIdHandler,
   deleteSourceByIdHandler,
   getAllBotsHandler,
-  getBotByIdAllSourcesHandler,
+  getDatasourceByBotId,
   getBotByIdEmbeddingsHandler,
   getBotByIdHandler,
   refreshSourceByIdHandler,
@@ -21,7 +21,8 @@ import {
   chatRequestAPIHandler,
   isBotReadyHandler,
   updateBotAPIByIdHandler,
-  updateBotPasswordSettings
+  updateBotPasswordSettings,
+  aiSearhRequestHandler,
 } from "../../../../handlers/api/v1/bot/bot";
 import {
   addNewSourceByIdSchema,
@@ -32,7 +33,9 @@ import {
   createBotAPISchema,
   addNewSourceByBulkIdSchema,
   updateBotAPISchema,
-  updateBotPasswordSettingsSchema
+  updateBotPasswordSettingsSchema,
+  getDatasourceByBotIdSchema,
+  searchBotSchema
 } from "../../../../schema/api/v1/bot/bot";
 
 const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
@@ -58,10 +61,10 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
   fastify.get(
     "/:id/source",
     {
-      schema: getBotByIdSchema,
+      schema: getDatasourceByBotIdSchema,
       onRequest: [fastify.authenticate],
     },
-    getBotByIdAllSourcesHandler
+    getDatasourceByBotId
   );
 
   // get details for settings
@@ -299,6 +302,10 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
             stream: {
               type: "boolean",
             },
+            knowledge_base_ids: {
+              type: "array",
+              default: [],
+            }
           },
         },
       },
@@ -332,6 +339,16 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
       onRequest: [fastify.authenticate],
     },
     updateBotPasswordSettings
+  );
+
+  // search bot
+  fastify.post(
+    "/:id/search",
+    {
+      schema: searchBotSchema,
+      onRequest: [fastify.authenticate],
+    },
+    aiSearhRequestHandler
   );
 };
 

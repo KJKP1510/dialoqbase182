@@ -11,7 +11,8 @@ import {
   deleteModelHandler,
   hideModelHandler,
   saveEmbedddingModelFromInputedUrlHandler,
-  updateDialoqbaseRAGSettingsHandler
+  updateDialoqbaseRAGSettingsHandler,
+  adminDeleteUserHandler
 } from "../../../../handlers/api/v1/admin";
 import {
   dialoqbaseSettingsSchema,
@@ -19,7 +20,8 @@ import {
   getAllUsersSchema,
   registerUserByAdminSchema,
   resetUserPasswordByAdminSchema,
-  updateDialoqbaseRAGSettings
+  updateDialoqbaseRAGSettings,
+  deleteUserSchema
 } from "../../../../schema/api/v1/admin";
 
 import {
@@ -71,7 +73,7 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
     "/register-user",
     {
       schema: registerUserByAdminSchema,
-      onRequest: [fastify.authenticate],
+      onRequest: [fastify.authenticateAdmin],
     },
     registerUserByAdminHandler
   );
@@ -80,7 +82,7 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
     "/reset-user-password",
     {
       schema: resetUserPasswordByAdminSchema,
-      onRequest: [fastify.authenticate],
+      onRequest: [fastify.authenticateAdmin],
     },
     resetUserPasswordByAdminHandler
   );
@@ -139,6 +141,16 @@ const root: FastifyPluginAsync = async (fastify, _): Promise<void> => {
       onRequest: [fastify.authenticate],
     },
     saveEmbedddingModelFromInputedUrlHandler
+  );
+
+  // api for admin to delete user
+  fastify.delete(
+    "/user/delete",
+    {
+      schema: deleteUserSchema,
+      onRequest: [fastify.authenticateAdmin],
+    },
+    adminDeleteUserHandler
   );
 };
 

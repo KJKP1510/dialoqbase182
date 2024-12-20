@@ -166,6 +166,10 @@ export const SettingsBody: React.FC<BotSettings> = ({
             noOfDocumentsToRetrieve: data.noOfDocumentsToRetrieve,
             noOfChatHistoryInContext: data.noOfChatHistoryInContext,
             semanticSearchSimilarityScore: data.semanticSearchSimilarityScore,
+            autoResetSession: data.autoResetSession,
+            inactivityTimeout: data.inactivityTimeout,
+            autoSyncDataSources: data.autoSyncDataSources,
+            internetSearchEnabled: data.internetSearchEnabled,
           }}
           form={form}
           requiredMark={false}
@@ -223,7 +227,24 @@ export const SettingsBody: React.FC<BotSettings> = ({
                     options={chatModel}
                   />
                 </Form.Item>
-
+                <Form.Item
+                  label={"Embedding Method"}
+                  name="embedding"
+                  help={
+                    <>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        If you change the embedding method, make sure to
+                        re-fetch the data source or choose a model with the same
+                        dimensions
+                      </p>
+                    </>
+                  }
+                >
+                  <Select
+                    placeholder="Select an embedding method"
+                    options={embeddingModel}
+                  />
+                </Form.Item>
                 <Form.Item
                   hasFeedback={!isStreamingSupported(currentModel)}
                   help={
@@ -264,24 +285,13 @@ export const SettingsBody: React.FC<BotSettings> = ({
                 </Form.Item>
 
                 <Form.Item
-                  label={"Embedding Method"}
-                  name="embedding"
-                  help={
-                    <>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        If you change the embedding method, make sure to
-                        re-fetch the data source or choose a model with the same
-                        dimensions
-                      </p>
-                    </>
-                  }
+                  name="internetSearchEnabled"
+                  label="Enable internet search"
+                  valuePropName="checked"
+                  help="This is experimental and may not work as expected."
                 >
-                  <Select
-                    placeholder="Select an embedding method"
-                    options={embeddingModel}
-                  />
+                  <Switch />
                 </Form.Item>
-
                 <Form.Item
                   name="noOfDocumentsToRetrieve"
                   label="Number of documents to retrieve"
@@ -424,6 +434,40 @@ export const SettingsBody: React.FC<BotSettings> = ({
                     size="large"
                     placeholder="Enter your API key here"
                   />
+                </Form.Item>
+
+                <Form.Item
+                  name="autoResetSession"
+                  label="Auto Reset Chat Session"
+                  tooltip="This will reset the chat session after a certain period of inactivity. Useful for platforms like Telegram, WhatsApp, etc."
+                >
+                  <Switch />
+                </Form.Item>
+
+                <Form.Item
+                  name="inactivityTimeout"
+                  label="Inactivity Timeout"
+                  help="Enter the time in seconds after which the chat session will be reset."
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please input an inactivity timeout!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    min={0}
+                    style={{ width: "100%" }}
+                    placeholder="Enter inactivity timeout"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="autoSyncDataSources"
+                  label="Auto Sync Data Source(s)"
+                  tooltip="This will automatically re-fetch the URL-based data sources at a certain interval."
+                >
+                  <Switch />
                 </Form.Item>
               </div>
             </div>
